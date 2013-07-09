@@ -3,29 +3,64 @@
 error_reporting(E_ALL);
 
 function findDrupalRoot($dir) {
+	if ($dir == '/') {
+    // nothing found at all!
+    return FALSE;
+  }
   if(in_array('index.php',scandir($dir))){
+
     return $dir;
   }
   return findDrupalRoot(dirname($dir));
 }
+
 $root = findDrupalRoot(dirname(__FILE__));
-require_once $root . '/includes/bootstrap.inc';
-//drupal_bootstrap(DRUPAL_BOOTSTRAP_FULL);
-//var_dump(variable_det('ding_wayfinder_server',''));
+if ($root) {
+  require_once $root . '/includes/bootstrap.inc';
+}
 
 
-$lib = dirname(dirname(__FILE__)) . '/lib/php-websocket/server/lib';
-require( $lib . '/SplClassLoader.php');
+use Ratchet\MessageComponentInterface;
+use Ratchet\ConnectionInterface;
+use Ratchet\Server\IoServer;
+use Ratchet\WebSocket\WsServer;
 
-$classLoader = new SplClassLoader('WebSocket', $lib);
-$classLoader->register();
-$classLoaderDing = new SplClassLoader('Ding', dirname(__FILE__));
-$classLoaderDing->register();
+$lib = dirname(dirname(__FILE__)) . '/lib/Ratchet/vendor';
+require( $lib . '/autoload.php');
+
+/**
+ * Wayfinder
+ * Send any incoming messages to all connected clients (except sender)
+ */
+class Wayfinder implements MessageComponentInterface {
+  protected $clients;
+
+  public function __construct() {
+    $this->clients = new \SplObjectStorage;
+  }
+
+  public function onOpen(ConnectionInterface $conn) {
+    $this->clients->attach($conn);
+  }
+
+  public function onMessage(ConnectionInterface $from, $msg) {
+    foreach ($this->clients as $client) {
+      if ($from != $client) {
+        $client->send($msg);
+      }
+    }
+  }
+
+  public function onClose(ConnectionInterface $conn) {
+    $this->clients->detach($conn);
+  }
+
+  public function onError(ConnectionInterface $conn, \Exception $e) {
+    $conn->close();
+  }
+}
 
 
-$server = new \WebSocket\Server('localhost', 8000);
-$server->registerApplication('echo', \WebSocket\Application\EchoApplication::getInstance());
-$server->registerApplication('time', \WebSocket\Application\TimeApplication::getInstance());
-$server->registerApplication('dwf', \Ding\WayfinderApplication::getInstance());
-
+    // Run the server application through the WebSocket protocol on port 8080
+$server = IoServer::factory(new WsServer(new Wayfinder), 8080);
 $server->run();

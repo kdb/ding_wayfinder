@@ -17,8 +17,7 @@ jQuery(function ($) {
 
   isiPad = navigator.userAgent.match(/iPad/i) != null;
   webApp = window.navigator.standalone;
-  isAdminApp = window.location.hash.substring(1) == 'admin';
-
+  isAdminApp = false;
   var initialFloor = 0;
 
   // get floor from storage
@@ -26,7 +25,7 @@ jQuery(function ($) {
     initialFloor = localStorage.getItem("floor");
     global.activeFloor = initialFloor;
   } else {
-    initialFloor = 0;
+    isAdminApp = true;
   }
 
 
@@ -78,7 +77,6 @@ jQuery(function ($) {
 
           global.activeKeywordId = $(this).attr('data-id');
           changeFloor(floorid);
-          ll.d(global.activeFloor, 'floor');
           $('.keywords > li > ul').hide().removeClass('activeFloor');
           $('.keywords > li:eq(' + global.activeFloor + ') > ul').show().addClass('activeFloor');
 
@@ -106,7 +104,6 @@ jQuery(function ($) {
 
 
   function onFloorChange(floorIndex) {
-    ll.d('floor changed');
     $('.topbar .aggregate').removeClass('act');
     // if floor is not initial floor
     if (floorIndex != initialFloor) {
@@ -137,13 +134,14 @@ jQuery(function ($) {
 
   function changeFloorPlan(index, reset) {
     onFloorChange(index);
+    $('.keywords > li > ul').scrollTop(0);
     $('.keywords > li > ul').hide().removeClass('activeFloor');
 
     // if target layer contains same id, select that id
     elementid = null;
     if (!reset) {
       $(data[index].keywords).each(function (i) {
-        //console.log(this);
+
         if (this.id == global.activeKeywordId) {
           elementid = i;
         }
@@ -237,9 +235,6 @@ jQuery(function ($) {
 
 
   function scrollBack() {}
-
-
-  ll.d(Drupal.settings.ding_wayfinder.settings.wayfinder_path);
 
   if (isAdminApp) {
     // show a diffrent app icon
